@@ -19,7 +19,7 @@ export function CompletionScreen() {
     serviceAccountKey: '', 
     spreadsheetId: '' 
   });
-  const [countdown, setCountdown] = useState(3);
+  const [countdown, setCountdown] = useState(0);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [duplicateRecord, setDuplicateRecord] = useState<any>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error' | 'auth-error'>('idle');
@@ -51,6 +51,15 @@ export function CompletionScreen() {
       : undefined
   );
 
+  // Google Sheets設定の読み込み状況をログ出力
+  useEffect(() => {
+    console.log('Google Sheets settings updated:', {
+      hasServiceAccountKey: !!googleSheetsSettings.serviceAccountKey,
+      hasSpreadsheetId: !!googleSheetsSettings.spreadsheetId,
+      isConfigured
+    });
+  }, [googleSheetsSettings, isConfigured]);
+
   // stateがnullの場合は即トップへ
   useEffect(() => {
     if (!state.selectedDepartment || !state.selectedEmployee || !state.selectedType) {
@@ -68,6 +77,7 @@ export function CompletionScreen() {
     const today = now.toDateString();
     
     try {
+      console.log('Checking for duplicate record...');
       // 同日同内容の記録をチェック
       const existingRecord = await findDuplicateRecord(
         state.selectedDepartment.id,
@@ -77,11 +87,13 @@ export function CompletionScreen() {
       );
 
       if (existingRecord) {
+        console.log('Duplicate record found:', existingRecord);
         setDuplicateRecord(existingRecord);
         setShowDuplicateModal(true);
         return;
       }
 
+      console.log('No duplicate record found, saving new record');
       // 新しい記録を保存
       await saveRecord();
     } catch (error) {
@@ -94,15 +106,27 @@ export function CompletionScreen() {
   // カウントダウンと画面遷移の制御
   useEffect(() => {
     if (showCompletion && countdown > 0) {
+      console.log(`Countdown: ${countdown}`);
       const timer = setTimeout(() => {
         setCountdown(countdown - 1);
       }, 1000);
       return () => clearTimeout(timer);
     } else if (showCompletion && countdown === 0) {
-      reset();
-      navigate('/');
+      console.log('Countdown finished, navigating to home');
+      setTimeout(() => {
+        reset();
+        navigate('/');
+      }, 100);
     }
   }, [countdown, showCompletion, reset, navigate]);
+
+  // 完了画面表示時のカウントダウン開始
+  useEffect(() => {
+    if (showCompletion) {
+      console.log('Completion screen shown, starting countdown');
+      setCountdown(3);
+    }
+  }, [showCompletion]);
 
   // 同期中タイムアウト監視（10秒）
   React.useEffect(() => {
@@ -168,12 +192,20 @@ export function CompletionScreen() {
   let sheetsReadyCache = false;
   const waitForSheetsServiceReady = async (timeoutMs = 1000) => {
     if (sheetsReadyCache) return true;
+    
+    // 設定されていない場合は即座にfalseを返す
+    if (!googleSheetsSettings.serviceAccountKey || !googleSheetsSettings.spreadsheetId) {
+      console.log('[waitForSheetsServiceReady] No Google Sheets configuration');
+      return false;
+    }
+    
     const interval = 50;
     let waited = 0;
     while (!isConfigured && waited < timeoutMs) {
       await new Promise(res => setTimeout(res, interval));
       waited += interval;
     }
+    
     if (isConfigured) {
       try {
         const ok = await testConnection();
@@ -196,62 +228,73 @@ export function CompletionScreen() {
     console.log('saveRecord start');
     if (!state.selectedDepartment || !state.selectedEmployee || !state.selectedType) return;
 
-    // ローカルDBに即保存
-    const record = await addAttendanceRecord({
-      department_id: state.selectedDepartment.id,
-      department_name: state.selectedDepartment.name,
-      employee_id: state.selectedEmployee.id,
-      employee_name: state.selectedEmployee.name,
-      type: state.selectedType.id, // idをtypeに
-      type_name: state.selectedType.name, // nameをtype_nameに
-      timestamp: new Date().toISOString(),
-      date: new Date().toDateString()
-    });
-    if (!record) {
-      setSyncStatus('error');
-      setSyncError('ローカル保存に失敗しました');
-      console.error('addAttendanceRecord failed: state=', state);
-      return;
-    }
-    console.log('after addAttendanceRecord', record);
-
-    // 完了画面を表示
-    setShowCompletion(true);
-    setSyncStatus('success');
-
-    // Google Sheets同期を試行
-    console.log('Google Sheets configuration status:', {
-      isConfigured,
-      hasServiceAccountKey: !!googleSheetsSettings.serviceAccountKey,
-      hasSpreadsheetId: !!googleSheetsSettings.spreadsheetId
-    });
-    
-    if (isConfigured) {
-      setSyncStatus('syncing');
-      try {
-        await recordAttendance(
-          state.selectedDepartment?.name || '',
-          state.selectedEmployee?.name || '',
-          state.selectedType?.name || '',
-          new Date(record.timestamp)
-        );
-        if (typeof markAttendanceRecordSynced === 'function') {
-          await markAttendanceRecordSynced(record.id);
-        }
-        setSyncStatus('success');
-        console.log('[Sync] Google Sheets同期成功:', record.id);
-      } catch (err) {
-        console.error('[Sync] Google Sheets同期失敗:', err);
+    try {
+      // ローカルDBに即保存
+      const record = await addAttendanceRecord({
+        department_id: state.selectedDepartment.id,
+        department_name: state.selectedDepartment.name,
+        employee_id: state.selectedEmployee.id,
+        employee_name: state.selectedEmployee.name,
+        type: state.selectedType.id, // idをtypeに
+        type_name: state.selectedType.name, // nameをtype_nameに
+        timestamp: new Date().toISOString(),
+        date: new Date().toDateString()
+      });
+      
+      if (!record) {
         setSyncStatus('error');
-        setSyncError(err instanceof Error ? err.message : '同期に失敗しました');
+        setSyncError('ローカル保存に失敗しました');
+        console.error('addAttendanceRecord failed: state=', state);
+        return;
       }
-    } else {
-      console.log('Google Sheets not configured, skipping sync');
-      setSyncStatus('error');
-      setSyncError('Google Sheetsが設定されていません。設定画面で設定してください。');
-    }
+      
+      console.log('after addAttendanceRecord', record);
 
-    // カウントダウンは別のuseEffectで処理される
+      // 完了画面を表示
+      setShowCompletion(true);
+      setSyncStatus('success');
+
+      // Google Sheets同期を試行（バックグラウンドで実行）
+      console.log('Google Sheets configuration status:', {
+        isConfigured,
+        hasServiceAccountKey: !!googleSheetsSettings.serviceAccountKey,
+        hasSpreadsheetId: !!googleSheetsSettings.spreadsheetId
+      });
+      
+      // バックグラウンドでGoogle Sheets同期を実行（非同期で実行）
+      if (isConfigured) {
+        // 即座に同期中状態に設定
+        setSyncStatus('syncing');
+        
+        // 非同期で同期処理を実行
+        (async () => {
+          try {
+            await recordAttendance(
+              state.selectedDepartment?.name || '',
+              state.selectedEmployee?.name || '',
+              state.selectedType?.name || '',
+              new Date(record.timestamp)
+            );
+            if (typeof markAttendanceRecordSynced === 'function') {
+              await markAttendanceRecordSynced(record.id);
+            }
+            setSyncStatus('success');
+            console.log('[Sync] Google Sheets同期成功:', record.id);
+          } catch (err) {
+            console.error('[Sync] Google Sheets同期失敗:', err);
+            setSyncStatus('error');
+            setSyncError(err instanceof Error ? err.message : '同期に失敗しました');
+          }
+        })();
+      } else {
+        console.log('Google Sheets not configured, skipping sync');
+        // 設定されていない場合はエラーにしない（ローカル保存は成功している）
+      }
+    } catch (error) {
+      console.error('saveRecord error:', error);
+      setSyncStatus('error');
+      setSyncError('打刻処理中にエラーが発生しました');
+    }
   };
 
   const handleUpdateRecord = () => {
@@ -330,7 +373,7 @@ export function CompletionScreen() {
   };
 
   const getSyncStatusText = () => {
-    if (!isConfigured) return 'ローカル保存のみ（Google Sheets未設定）';
+    if (!isConfigured) return 'ローカル保存完了（Google Sheets未設定）';
     switch (syncStatus) {
       case 'syncing':
         return 'スプレッドシートに同期中...';
@@ -341,7 +384,7 @@ export function CompletionScreen() {
       case 'error':
         return syncError;
       default:
-        return '';
+        return 'ローカル保存完了';
     }
   };
 
@@ -432,8 +475,8 @@ export function CompletionScreen() {
     );
   }
 
-  // エラー時の再試行UI（詳細エラー表示）
-  if (!showDuplicateModal && (syncStatus === 'error' || syncStatus === 'auth-error')) {
+  // エラー時の再試行UI（詳細エラー表示）- Google Sheets設定がある場合のみ
+  if (!showDuplicateModal && isConfigured && (syncStatus === 'error' || syncStatus === 'auth-error')) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 p-4 flex items-center justify-center">
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-xl w-full text-center">
