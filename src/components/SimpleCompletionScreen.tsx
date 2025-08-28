@@ -36,15 +36,21 @@ export function SimpleCompletionScreen() {
   }, [getSetting, updateConfig]);
 
   useEffect(() => {
-    // 打刻処理を実行
+    // 打刻処理を実行（シンプル版）
     const processAttendance = async () => {
+      console.log('Starting attendance process...');
+      
       try {
+        // 基本的なバリデーション
         if (!state.selectedDepartment || !state.selectedEmployee || !state.selectedType) {
+          console.log('Missing required data, navigating to home');
           navigate('/');
           return;
         }
 
-        // ローカルDBに保存
+        console.log('Creating attendance record...');
+        
+        // ローカルDBに保存（シンプルな処理）
         const record = await addAttendanceRecord({
           department_id: state.selectedDepartment.id,
           department_name: state.selectedDepartment.name,
@@ -56,67 +62,26 @@ export function SimpleCompletionScreen() {
           date: new Date().toDateString()
         });
 
-        if (record) {
-          console.log('Attendance record saved:', record);
-          console.log('Local save completed');
-          
-          // ローカル保存完了後、すぐに処理完了とする
-          setIsProcessing(false);
-          
-          // Google Sheetsに送信（完全にバックグラウンド）
-          // 一時的にGoogle Sheets同期を無効化（デバッグ用）
-          const enableGoogleSheetsSync = false; // ここをtrueにすると有効化
-          
-          if (enableGoogleSheetsSync && isConfigured && isConnected) {
-            setSyncStatus('syncing');
-            
-            // 完全にバックグラウンドで実行（UIをブロックしない）
-            const runInBackground = () => {
-              (async () => {
-                try {
-                  const success = await recordAttendance({
-                    departmentName: state.selectedDepartment.name,
-                    employeeName: state.selectedEmployee.name,
-                    attendanceType: state.selectedType.name,
-                    timestamp: new Date()
-                  });
-                  
-                  if (success) {
-                    setSyncStatus('success');
-                    console.log('Google Sheets sync completed');
-                  } else {
-                    setSyncStatus('error');
-                    setSyncError('Google Sheets同期に失敗しました');
-                    console.error('Google Sheets sync failed');
-                  }
-                } catch (error) {
-                  setSyncStatus('error');
-                  setSyncError('Google Sheets同期エラー');
-                  console.error('Google Sheets sync error:', error);
-                }
-              })();
-            };
+        console.log('Record created:', record);
 
-            // requestIdleCallbackのフォールバック
-            if (window.requestIdleCallback) {
-              window.requestIdleCallback(runInBackground);
-            } else {
-              setTimeout(runInBackground, 0);
-            }
-          } else {
-            console.log('Google Sheets not configured or not connected');
-          }
+        if (record) {
+          console.log('Attendance record saved successfully');
+          // 即座に処理完了
+          setIsProcessing(false);
         } else {
+          console.error('Failed to save attendance record');
           setIsProcessing(false);
         }
+        
       } catch (error) {
-        console.error('Error processing attendance:', error);
+        console.error('Error in attendance process:', error);
         setIsProcessing(false);
       }
     };
 
+    // 即座に実行
     processAttendance();
-  }, [state, addAttendanceRecord, navigate, isConfigured, isConnected, recordAttendance]);
+  }, [state, addAttendanceRecord, navigate]);
 
   // カウントダウン処理
   useEffect(() => {

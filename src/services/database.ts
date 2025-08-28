@@ -32,18 +32,23 @@ export class DatabaseService {
     if (this.isInitialized) return;
 
     try {
+      console.log('Loading SQL.js...');
       const SQL = await initSqlJs({
         locateFile: (file) => `https://sql.js.org/dist/${file}`
       });
 
+      console.log('SQL.js loaded, checking for existing database...');
+      
       // 既存のデータベースファイルがあるかチェック
       const savedDb = localStorage.getItem('attendance_database');
       
       if (savedDb) {
+        console.log('Restoring existing database...');
         // 既存のデータベースを復元
         const uint8Array = new Uint8Array(JSON.parse(savedDb));
         this.db = new SQL.Database(uint8Array);
       } else {
+        console.log('Creating new database...');
         // 新しいデータベースを作成
         this.db = new SQL.Database();
         await this.createTables();
@@ -51,9 +56,14 @@ export class DatabaseService {
       }
 
       this.isInitialized = true;
+      console.log('Database initialization completed');
       
-      // 毎月10日のクリーンアップをチェック
-      this.checkAndPerformMonthlyCleanup();
+      // クリーンアップは後で実行（非同期）
+      setTimeout(() => {
+        this.checkAndPerformMonthlyCleanup().catch(err => {
+          console.error('Cleanup check failed:', err);
+        });
+      }, 1000);
       
     } catch (error) {
       console.error('Database initialization failed:', error);

@@ -46,6 +46,7 @@ export function useDatabase() {
       }
     };
 
+    // 即座に初期化を開始
     initializeDatabase();
   }, []);
 
