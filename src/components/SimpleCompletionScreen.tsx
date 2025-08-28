@@ -60,40 +60,55 @@ export function SimpleCompletionScreen() {
           console.log('Attendance record saved:', record);
           console.log('Local save completed');
           
-          // Google Sheetsに送信（非同期・タイムアウト付き）
-          if (isConfigured && isConnected) {
+          // ローカル保存完了後、すぐに処理完了とする
+          setIsProcessing(false);
+          
+          // Google Sheetsに送信（完全にバックグラウンド）
+          // 一時的にGoogle Sheets同期を無効化（デバッグ用）
+          const enableGoogleSheetsSync = false; // ここをtrueにすると有効化
+          
+          if (enableGoogleSheetsSync && isConfigured && isConnected) {
             setSyncStatus('syncing');
             
-            // バックグラウンドで非同期実行（タイムアウト付き）
-            setTimeout(async () => {
-              try {
-                const success = await recordAttendance({
-                  departmentName: state.selectedDepartment.name,
-                  employeeName: state.selectedEmployee.name,
-                  attendanceType: state.selectedType.name,
-                  timestamp: new Date()
-                });
-                
-                if (success) {
-                  setSyncStatus('success');
-                  console.log('Google Sheets sync completed');
-                } else {
+            // 完全にバックグラウンドで実行（UIをブロックしない）
+            const runInBackground = () => {
+              (async () => {
+                try {
+                  const success = await recordAttendance({
+                    departmentName: state.selectedDepartment.name,
+                    employeeName: state.selectedEmployee.name,
+                    attendanceType: state.selectedType.name,
+                    timestamp: new Date()
+                  });
+                  
+                  if (success) {
+                    setSyncStatus('success');
+                    console.log('Google Sheets sync completed');
+                  } else {
+                    setSyncStatus('error');
+                    setSyncError('Google Sheets同期に失敗しました');
+                    console.error('Google Sheets sync failed');
+                  }
+                } catch (error) {
                   setSyncStatus('error');
-                  setSyncError('Google Sheets同期に失敗しました');
-                  console.error('Google Sheets sync failed');
+                  setSyncError('Google Sheets同期エラー');
+                  console.error('Google Sheets sync error:', error);
                 }
-              } catch (error) {
-                setSyncStatus('error');
-                setSyncError('Google Sheets同期エラー');
-                console.error('Google Sheets sync error:', error);
-              }
-            }, 100); // 100ms後に実行
+              })();
+            };
+
+            // requestIdleCallbackのフォールバック
+            if (window.requestIdleCallback) {
+              window.requestIdleCallback(runInBackground);
+            } else {
+              setTimeout(runInBackground, 0);
+            }
           } else {
             console.log('Google Sheets not configured or not connected');
           }
+        } else {
+          setIsProcessing(false);
         }
-
-        setIsProcessing(false);
       } catch (error) {
         console.error('Error processing attendance:', error);
         setIsProcessing(false);
@@ -101,7 +116,7 @@ export function SimpleCompletionScreen() {
     };
 
     processAttendance();
-  }, [state, addAttendanceRecord, navigate]);
+  }, [state, addAttendanceRecord, navigate, isConfigured, isConnected, recordAttendance]);
 
   // カウントダウン処理
   useEffect(() => {
