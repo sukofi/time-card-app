@@ -60,30 +60,34 @@ export function SimpleCompletionScreen() {
           console.log('Attendance record saved:', record);
           console.log('Local save completed');
           
-          // Google Sheetsに送信（非同期）
+          // Google Sheetsに送信（非同期・タイムアウト付き）
           if (isConfigured && isConnected) {
             setSyncStatus('syncing');
-            try {
-              const success = await recordAttendance({
-                departmentName: state.selectedDepartment.name,
-                employeeName: state.selectedEmployee.name,
-                attendanceType: state.selectedType.name,
-                timestamp: new Date()
-              });
-              
-              if (success) {
-                setSyncStatus('success');
-                console.log('Google Sheets sync completed');
-              } else {
+            
+            // バックグラウンドで非同期実行（タイムアウト付き）
+            setTimeout(async () => {
+              try {
+                const success = await recordAttendance({
+                  departmentName: state.selectedDepartment.name,
+                  employeeName: state.selectedEmployee.name,
+                  attendanceType: state.selectedType.name,
+                  timestamp: new Date()
+                });
+                
+                if (success) {
+                  setSyncStatus('success');
+                  console.log('Google Sheets sync completed');
+                } else {
+                  setSyncStatus('error');
+                  setSyncError('Google Sheets同期に失敗しました');
+                  console.error('Google Sheets sync failed');
+                }
+              } catch (error) {
                 setSyncStatus('error');
-                setSyncError('Google Sheets同期に失敗しました');
-                console.error('Google Sheets sync failed');
+                setSyncError('Google Sheets同期エラー');
+                console.error('Google Sheets sync error:', error);
               }
-            } catch (error) {
-              setSyncStatus('error');
-              setSyncError('Google Sheets同期エラー');
-              console.error('Google Sheets sync error:', error);
-            }
+            }, 100); // 100ms後に実行
           } else {
             console.log('Google Sheets not configured or not connected');
           }

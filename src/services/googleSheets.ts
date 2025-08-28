@@ -140,23 +140,38 @@ export class GoogleSheetsService {
   private async appendToSheet(range: string, values: any[][]): Promise<void> {
     const token = await this.getAccessToken();
     
-    const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${this.config.spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          values: values
-        })
-      }
-    );
+    // タイムアウト付きのfetch
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8秒でタイムアウト
+    
+    try {
+      const response = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.config.spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            values: values
+          }),
+          signal: controller.signal
+        }
+      );
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`Sheet update failed: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Sheet update failed: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+      }
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Google Sheets API request timed out');
+      }
+      throw error;
     }
   }
 

@@ -93,7 +93,15 @@ export function useGoogleSheets() {
     setError(null);
 
     try {
-      await sheetsService.recordAttendance(record);
+      // タイムアウト付きで実行（10秒）
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Google Sheets同期がタイムアウトしました')), 10000);
+      });
+
+      const syncPromise = sheetsService.recordAttendance(record);
+      
+      await Promise.race([syncPromise, timeoutPromise]);
+      
       console.log('[GoogleSheets] Attendance recorded successfully:', record);
       return true;
     } catch (err: any) {
