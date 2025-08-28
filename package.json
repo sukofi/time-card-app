@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "auto-commit": "./auto-commit.sh",
+    "watch": "npm run auto-commit"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.0",
