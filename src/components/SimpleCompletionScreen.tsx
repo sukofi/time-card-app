@@ -18,7 +18,7 @@ export function SimpleCompletionScreen() {
     spreadsheetId: '' 
   });
 
-  // Google Sheets設定を読み込む
+  // Google Sheets設定を読み込む（非同期）
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -29,7 +29,8 @@ export function SimpleCompletionScreen() {
         console.error('Error loading Google Sheets settings:', error);
       }
     };
-    loadSettings();
+    // 非同期で実行
+    setTimeout(loadSettings, 0);
   }, [getSetting]);
 
   const { recordAttendance, isConfigured } = useGoogleSheets(
@@ -62,26 +63,9 @@ export function SimpleCompletionScreen() {
         if (record) {
           console.log('Attendance record saved:', record);
           
-          // Google Sheets同期を試行
-          if (isConfigured) {
-            setSyncStatus('syncing');
-            try {
-              await recordAttendance(
-                state.selectedDepartment?.name || '',
-                state.selectedEmployee?.name || '',
-                state.selectedType?.name || '',
-                new Date(record.timestamp)
-              );
-              setSyncStatus('success');
-              console.log('[Sync] Google Sheets同期成功:', record.id);
-            } catch (err) {
-              console.error('[Sync] Google Sheets同期失敗:', err);
-              setSyncStatus('error');
-              setSyncError(err instanceof Error ? err.message : '同期に失敗しました');
-            }
-          } else {
-            console.log('Google Sheets not configured, skipping sync');
-          }
+          // Google Sheets同期を一時的に無効化（安定性のため）
+          console.log('Google Sheets sync temporarily disabled for stability');
+          setSyncStatus('idle');
         }
 
         setIsProcessing(false);
