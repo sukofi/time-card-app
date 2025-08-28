@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Plus, Trash2, GripVertical, Edit2, Save } from 'lucide-react';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+// import { useLocalStorage } from '../hooks/useLocalStorage'; // 削除済み
 import { Department } from '../types';
 
 interface DepartmentManagementModalProps {
@@ -9,7 +9,8 @@ interface DepartmentManagementModalProps {
 }
 
 export function DepartmentManagementModal({ isOpen, onClose }: DepartmentManagementModalProps) {
-  const [departments, setDepartments] = useLocalStorage<Department[]>('departments', []);
+  // const [departments, setDepartments] = useLocalStorage<Department[]>('departments', []); // 削除済み
+  const [departments, setDepartments] = useState<Department[]>([]); // 一時的にuseStateを使用
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [newDeptName, setNewDeptName] = useState('');

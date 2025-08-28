@@ -6,7 +6,7 @@ import { CurrentTime } from './CurrentTime';
 import { TileButton } from './TileButton';
 import { SettingsModal } from './SettingsModal';
 import { AdminAuthModal } from './AdminAuthModal';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+// import { useLocalStorage } from '../hooks/useLocalStorage'; // 削除済み
 import { DepartmentManagementModal } from './DepartmentManagementModal';
 
 export function DepartmentSelection() {
@@ -14,7 +14,7 @@ export function DepartmentSelection() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAdminAuth, setShowAdminAuth] = useState(false);
   const [showDeptManage, setShowDeptManage] = useState(false);
-  const [departmentsLS, setDepartmentsLS] = useLocalStorage('departments', null);
+  // const [departmentsLS, setDepartmentsLS] = useLocalStorage('departments', null); // 削除済み
 
   // タップ音を再生する関数
   const playTapSound = () => {
@@ -48,16 +48,16 @@ export function DepartmentSelection() {
     setShowSettings(true);
   };
 
-  // localStorageに部署がなければ初期値をセット
-  React.useEffect(() => {
-    if (!departmentsLS) {
-      import('../data/departments').then(mod => {
-        setDepartmentsLS(mod.departments);
-      });
-    }
-  }, [departmentsLS, setDepartmentsLS]);
+  // localStorageに部署がなければ初期値をセット（削除済み）
+  // React.useEffect(() => {
+  //   if (!departmentsLS) {
+  //     import('../data/departments').then(mod => {
+  //       setDepartmentsLS(mod.departments);
+  //     });
+  //   }
+  // }, [departmentsLS, setDepartmentsLS]);
 
-  const departmentsToShow = departmentsLS ? [...departmentsLS].sort((a, b) => a.order - b.order) : [];
+  const departmentsToShow = departments; // 直接使用
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 md:p-6 lg:p-8 flex flex-col">

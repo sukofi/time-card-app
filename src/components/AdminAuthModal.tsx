@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Lock, Eye, EyeOff } from 'lucide-react';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+// import { useLocalStorage } from '../hooks/useLocalStorage'; // 削除済み
 
 interface AdminAuthModalProps {
   isOpen: boolean;
@@ -9,7 +9,8 @@ interface AdminAuthModalProps {
 }
 
 export function AdminAuthModal({ isOpen, onClose, onSuccess }: AdminAuthModalProps) {
-  const [adminPassword, setAdminPassword] = useLocalStorage('adminPassword', '0000');
+  // const [adminPassword, setAdminPassword] = useLocalStorage('adminPassword', '0000'); // 削除済み
+  const [adminPassword, setAdminPassword] = useState('0000'); // 一時的にuseStateを使用
   const [inputPassword, setInputPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
