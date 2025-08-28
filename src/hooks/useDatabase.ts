@@ -28,7 +28,7 @@ interface AttendanceRecord {
 export function useDatabase() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { recordAttendance, isConfigured } = useGoogleSheets();
+  const { isConfigured } = useGoogleSheets();
 
   useEffect(() => {
     const initializeDatabase = async () => {
@@ -45,61 +45,61 @@ export function useDatabase() {
     initializeDatabase();
   }, []);
 
-  // DB初期化後に未同期レコードを自動再送信（初回）
-  useEffect(() => {
-    const resendUnsyncedRecords = async () => {
-      if (!isInitialized || !isConfigured) return;
-      try {
-        const unsynced = await databaseService.getUnsyncedAttendanceRecords();
-        for (const rec of unsynced) {
-          try {
-            await recordAttendance(
-              rec.department_name,
-              rec.employee_name,
-              rec.type_name,
-              new Date(rec.timestamp)
-            );
-            await databaseService.markAttendanceRecordSynced(rec.id);
-            console.log('[Resend] Synced attendance record:', rec.id);
-          } catch (err) {
-            console.error('[Resend] Failed to sync attendance record:', rec.id, err);
-          }
-        }
-      } catch (err) {
-        console.error('[Resend] Error during unsynced resend:', err);
-      }
-    };
-    resendUnsyncedRecords();
-  }, [isInitialized, isConfigured]);
+  // DB初期化後に未同期レコードを自動再送信（初回）- 無効化
+  // useEffect(() => {
+  //   const resendUnsyncedRecords = async () => {
+  //     if (!isInitialized || !isConfigured) return;
+  //     try {
+  //       const unsynced = await databaseService.getUnsyncedAttendanceRecords();
+  //       for (const rec of unsynced) {
+  //         try {
+  //           await recordAttendance(
+  //             rec.department_name,
+  //             rec.employee_name,
+  //             rec.type_name,
+  //             new Date(rec.timestamp)
+  //           );
+  //           await databaseService.markAttendanceRecordSynced(rec.id);
+  //           console.log('[Resend] Synced attendance record:', rec.id);
+  //         } catch (err) {
+  //           console.error('[Resend] Failed to sync attendance record:', rec.id, err);
+  //         }
+  //       }
+  //     } catch (err) {
+  //       console.error('[Resend] Error during unsynced resend:', err);
+  //     }
+  //   };
+  //   resendUnsyncedRecords();
+  // }, [isInitialized, isConfigured]);
 
-  // バックグラウンドで定期的に未同期レコードを自動再送信
-  useEffect(() => {
-    if (!isInitialized || !isConfigured) return;
-    const interval = setInterval(() => {
-      (async () => {
-        try {
-          const unsynced = await databaseService.getUnsyncedAttendanceRecords();
-          for (const rec of unsynced) {
-            try {
-              await recordAttendance(
-                rec.department_name,
-                rec.employee_name,
-                rec.type_name,
-                new Date(rec.timestamp)
-              );
-              await databaseService.markAttendanceRecordSynced(rec.id);
-              console.log('[BG-Resend] Synced attendance record:', rec.id);
-            } catch (err) {
-              console.error('[BG-Resend] Failed to sync attendance record:', rec.id, err);
-            }
-          }
-        } catch (err) {
-          console.error('[BG-Resend] Error during unsynced resend:', err);
-        }
-      })();
-    }, 30000); // 30秒ごと
-    return () => clearInterval(interval);
-  }, [isInitialized, isConfigured]);
+  // バックグラウンドで定期的に未同期レコードを自動再送信（無効化）
+  // useEffect(() => {
+  //   if (!isInitialized || !isConfigured) return;
+  //   const interval = setInterval(() => {
+  //     (async () => {
+  //       try {
+  //         const unsynced = await databaseService.getUnsyncedAttendanceRecords();
+  //         for (const rec of unsynced) {
+  //           try {
+  //             await recordAttendance(
+  //               rec.department_name,
+  //               rec.employee_name,
+  //               rec.type_name,
+  //               new Date(rec.timestamp)
+  //             );
+  //             await databaseService.markAttendanceRecordSynced(rec.id);
+  //             console.log('[BG-Resend] Synced attendance record:', rec.id);
+  //           } catch (err) {
+  //             console.error('[BG-Resend] Failed to sync attendance record:', rec.id, err);
+  //           }
+  //         }
+  //       } catch (err) {
+  //         console.error('[BG-Resend] Error during unsynced resend:', err);
+  //       }
+  //     })();
+  //   }, 30000); // 30秒ごと
+  //   return () => clearInterval(interval);
+  // }, [isInitialized, isConfigured]);
 
   const getDepartments = async (): Promise<Department[]> => {
     try {

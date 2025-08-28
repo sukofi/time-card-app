@@ -66,9 +66,14 @@ export function CompletionScreen() {
       navigate('/');
       return;
     }
-    checkForDuplicateAndSave();
+    // 一度だけ実行するようにフラグを追加
+    let isExecuted = false;
+    if (!isExecuted) {
+      isExecuted = true;
+      checkForDuplicateAndSave();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.selectedDepartment, state.selectedEmployee, state.selectedType]);
+  }, []);
 
   const checkForDuplicateAndSave = async () => {
     if (!state.selectedDepartment || !state.selectedEmployee || !state.selectedType) return;
@@ -261,35 +266,43 @@ export function CompletionScreen() {
         hasSpreadsheetId: !!googleSheetsSettings.spreadsheetId
       });
       
-      // バックグラウンドでGoogle Sheets同期を実行（非同期で実行）
-      if (isConfigured) {
-        // 即座に同期中状態に設定
-        setSyncStatus('syncing');
+        // バックグラウンドでGoogle Sheets同期を実行（非同期で実行）
+  if (isConfigured) {
+    // 即座に同期中状態に設定
+    setSyncStatus('syncing');
+    
+    // 非同期で同期処理を実行（タイムアウト付き）
+    (async () => {
+      try {
+        // タイムアウトを設定（10秒）
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Google Sheets同期タイムアウト')), 10000);
+        });
         
-        // 非同期で同期処理を実行
-        (async () => {
-          try {
-            await recordAttendance(
-              state.selectedDepartment?.name || '',
-              state.selectedEmployee?.name || '',
-              state.selectedType?.name || '',
-              new Date(record.timestamp)
-            );
-            if (typeof markAttendanceRecordSynced === 'function') {
-              await markAttendanceRecordSynced(record.id);
-            }
-            setSyncStatus('success');
-            console.log('[Sync] Google Sheets同期成功:', record.id);
-          } catch (err) {
-            console.error('[Sync] Google Sheets同期失敗:', err);
-            setSyncStatus('error');
-            setSyncError(err instanceof Error ? err.message : '同期に失敗しました');
-          }
-        })();
-      } else {
-        console.log('Google Sheets not configured, skipping sync');
-        // 設定されていない場合はエラーにしない（ローカル保存は成功している）
+        const syncPromise = recordAttendance(
+          state.selectedDepartment?.name || '',
+          state.selectedEmployee?.name || '',
+          state.selectedType?.name || '',
+          new Date(record.timestamp)
+        );
+        
+        await Promise.race([syncPromise, timeoutPromise]);
+        
+        if (typeof markAttendanceRecordSynced === 'function') {
+          await markAttendanceRecordSynced(record.id);
+        }
+        setSyncStatus('success');
+        console.log('[Sync] Google Sheets同期成功:', record.id);
+      } catch (err) {
+        console.error('[Sync] Google Sheets同期失敗:', err);
+        setSyncStatus('error');
+        setSyncError(err instanceof Error ? err.message : '同期に失敗しました');
       }
+    })();
+  } else {
+    console.log('Google Sheets not configured, skipping sync');
+    // 設定されていない場合はエラーにしない（ローカル保存は成功している）
+  }
     } catch (error) {
       console.error('saveRecord error:', error);
       setSyncStatus('error');
