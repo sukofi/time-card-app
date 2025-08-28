@@ -28,7 +28,7 @@ interface AttendanceRecord {
 export function useDatabase() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { isConfigured } = useGoogleSheets();
+  const { isConfigured, syncUnsyncedRecords } = useGoogleSheets();
 
   useEffect(() => {
     const initializeDatabase = async () => {
@@ -250,6 +250,27 @@ export function useDatabase() {
     }
   };
 
+  // 未同期レコードを一括転記
+  const syncUnsyncedRecordsToSheets = async (): Promise<{
+    success: boolean;
+    syncedCount: number;
+    errorCount: number;
+    errors: string[];
+  }> => {
+    try {
+      if (!isConfigured) {
+        return { success: false, syncedCount: 0, errorCount: 0, errors: ['Google Sheets not configured'] };
+      }
+      
+      const result = await syncUnsyncedRecords();
+      setError(null);
+      return result;
+    } catch (err: any) {
+      setError(err.message);
+      return { success: false, syncedCount: 0, errorCount: 0, errors: [err.message] };
+    }
+  };
+
   return {
     isInitialized,
     error,
@@ -263,7 +284,8 @@ export function useDatabase() {
     getMonthlyAttendanceRecords,
     saveSetting,
     getSetting,
-    markAttendanceRecordSynced, // 追加
+    markAttendanceRecordSynced,
+    syncUnsyncedRecordsToSheets, // 追加
     getDatabaseStats
   };
 }

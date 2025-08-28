@@ -19,7 +19,8 @@ export function SettingsModal({ isOpen, onClose, currentDepartment }: SettingsMo
     saveSetting, 
     getSetting, 
     manualCleanup, 
-    getDatabaseStats 
+    getDatabaseStats,
+    syncUnsyncedRecordsToSheets
   } = useDatabase();
   
   const [settings, setSettings] = useState<GoogleSheetsSettings>({
@@ -46,6 +47,13 @@ export function SettingsModal({ isOpen, onClose, currentDepartment }: SettingsMo
   });
   const [isCleaningUp, setIsCleaningUp] = useState(false);
   const [cleanupSuccess, setCleanupSuccess] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{
+    success: boolean;
+    syncedCount: number;
+    errorCount: number;
+    errors: string[];
+  } | null>(null);
 
   // 設定とデータベース統計を読み込む
   React.useEffect(() => {
@@ -200,6 +208,36 @@ export function SettingsModal({ isOpen, onClose, currentDepartment }: SettingsMo
     }
   };
 
+  const handleSyncUnsyncedRecords = async () => {
+    if (!confirm('ローカル保存された未同期の打刻データをGoogle Sheetsに転記しますか？')) {
+      return;
+    }
+
+    setIsSyncing(true);
+    setSyncResult(null);
+    
+    try {
+      const result = await syncUnsyncedRecordsToSheets();
+      setSyncResult(result);
+      
+      if (result.success) {
+        console.log(`転記完了: ${result.syncedCount}件のレコードを転記しました`);
+      } else {
+        console.error(`転記エラー: ${result.errorCount}件のエラーが発生しました`);
+      }
+    } catch (error) {
+      console.error('Sync error:', error);
+      setSyncResult({
+        success: false,
+        syncedCount: 0,
+        errorCount: 1,
+        errors: ['転記中にエラーが発生しました']
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -334,6 +372,72 @@ export function SettingsModal({ isOpen, onClose, currentDepartment }: SettingsMo
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* 未同期レコード転記 */}
+            <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+              <h4 className="font-semibold text-green-800 mb-2 flex items-center">
+                <ExternalLink className="w-4 h-4 mr-2" />
+                未同期レコード転記
+              </h4>
+              <p className="text-sm text-green-700 mb-3">
+                ローカル保存された未同期の打刻データをGoogle Sheetsに転記します。
+              </p>
+              <button
+                onClick={handleSyncUnsyncedRecords}
+                disabled={isSyncing || testStatus !== 'success'}
+                className="flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isSyncing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    転記中...
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    未同期レコードを転記
+                  </>
+                )}
+              </button>
+              
+              {syncResult && (
+                <div className="mt-3 p-3 rounded-lg text-sm">
+                  {syncResult.success ? (
+                    <div className="text-green-700 bg-green-100 rounded-lg p-3">
+                      <div className="flex items-center mb-1">
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        <span className="font-semibold">転記完了</span>
+                      </div>
+                      <p>転記件数: {syncResult.syncedCount}件</p>
+                      {syncResult.errorCount > 0 && (
+                        <p className="text-yellow-700">エラー件数: {syncResult.errorCount}件</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-red-700 bg-red-100 rounded-lg p-3">
+                      <div className="flex items-center mb-1">
+                        <AlertTriangle className="w-4 h-4 mr-1" />
+                        <span className="font-semibold">転記エラー</span>
+                      </div>
+                      <p>エラー件数: {syncResult.errorCount}件</p>
+                      {syncResult.errors.length > 0 && (
+                        <div className="mt-1">
+                          <p className="font-semibold">エラー詳細:</p>
+                          <ul className="list-disc list-inside text-xs">
+                            {syncResult.errors.slice(0, 3).map((error, index) => (
+                              <li key={index}>{error}</li>
+                            ))}
+                            {syncResult.errors.length > 3 && (
+                              <li>...他{syncResult.errors.length - 3}件</li>
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* クリーンアップ */}
