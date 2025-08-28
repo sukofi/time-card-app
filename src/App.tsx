@@ -5,7 +5,7 @@ import { HistoryDepartmentSelection } from './components/HistoryDepartmentSelect
 import { HistoryEmployeeSelection } from './components/HistoryEmployeeSelection';
 import { EmployeeSelection } from './components/EmployeeSelection';
 import { AttendanceTypeSelection } from './components/AttendanceTypeSelection';
-import { CompletionScreen } from './components/CompletionScreen';
+import { SimpleCompletionScreen } from './components/SimpleCompletionScreen';
 import { AttendanceHistoryView } from './components/AttendanceHistoryView';
 
 function AppContent() {
@@ -26,7 +26,7 @@ function AppContent() {
 
   // 通常の打刻モード
   if (state.isCompleted || (state.selectedDepartment && state.selectedEmployee && state.selectedType)) {
-    return <CompletionScreen />;
+    return <SimpleCompletionScreen />;
   }
 
   if (state.selectedDepartment && state.selectedEmployee) {

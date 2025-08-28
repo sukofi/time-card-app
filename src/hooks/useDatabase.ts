@@ -33,12 +33,16 @@ export function useDatabase() {
   useEffect(() => {
     const initializeDatabase = async () => {
       try {
+        console.log('Initializing database...');
         await databaseService.initialize();
         setIsInitialized(true);
         setError(null);
+        console.log('Database initialized successfully');
       } catch (err: any) {
-        setError(err.message || 'Database initialization failed');
         console.error('Database initialization error:', err);
+        setError(err.message || 'Database initialization failed');
+        // エラーが発生しても初期化完了として扱う
+        setIsInitialized(true);
       }
     };
 
