@@ -19,7 +19,7 @@ export function CompletionScreen() {
     serviceAccountKey: '', 
     spreadsheetId: '' 
   });
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(3);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [duplicateRecord, setDuplicateRecord] = useState<any>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error' | 'auth-error'>('idle');
@@ -33,13 +33,17 @@ export function CompletionScreen() {
       try {
         const serviceAccountKey = await getSetting('googleSheetsServiceAccountKey') || '';
         const spreadsheetId = await getSetting('googleSheetsSpreadsheetId') || '';
+        console.log('Loading Google Sheets settings:', { 
+          hasServiceAccountKey: !!serviceAccountKey, 
+          hasSpreadsheetId: !!spreadsheetId 
+        });
         setGoogleSheetsSettings({ serviceAccountKey, spreadsheetId });
       } catch (error) {
         console.error('Error loading Google Sheets settings:', error);
       }
     };
     loadSettings();
-  }, []);
+  }, [getSetting]);
 
   const { recordAttendance, isConfigured, testConnection } = useGoogleSheets(
     googleSheetsSettings.serviceAccountKey && googleSheetsSettings.spreadsheetId 
@@ -89,17 +93,16 @@ export function CompletionScreen() {
 
   // カウントダウンと画面遷移の制御
   useEffect(() => {
-    // 同期成功時のみカウントダウン開始
-    if (!showDuplicateModal && syncStatus === 'success' && countdown > 0) {
+    if (showCompletion && countdown > 0) {
       const timer = setTimeout(() => {
         setCountdown(countdown - 1);
       }, 1000);
       return () => clearTimeout(timer);
-    } else if (!showDuplicateModal && syncStatus === 'success' && countdown === 0) {
+    } else if (showCompletion && countdown === 0) {
       reset();
+      navigate('/');
     }
-    // それ以外（同期中・エラー時）はカウントダウンしない
-  }, [countdown, showDuplicateModal, syncStatus, reset]);
+  }, [countdown, showCompletion, reset, navigate]);
 
   // 同期中タイムアウト監視（10秒）
   React.useEffect(() => {
@@ -212,15 +215,19 @@ export function CompletionScreen() {
     }
     console.log('after addAttendanceRecord', record);
 
-    // 即座にトップ画面へ遷移＆完了メッセージ
+    // 完了画面を表示
     setShowCompletion(true);
-    setTimeout(() => {
-      navigate('/');
-    }, 1000); // 1秒後にトップへ
+    setSyncStatus('success');
 
-    // Google Sheets同期はバックグラウンドで自動リトライ
-    const trySync = async (retry = 0) => {
-      if (!isConfigured || !record) return;
+    // Google Sheets同期を試行
+    console.log('Google Sheets configuration status:', {
+      isConfigured,
+      hasServiceAccountKey: !!googleSheetsSettings.serviceAccountKey,
+      hasSpreadsheetId: !!googleSheetsSettings.spreadsheetId
+    });
+    
+    if (isConfigured) {
+      setSyncStatus('syncing');
       try {
         await recordAttendance(
           state.selectedDepartment?.name || '',
@@ -231,15 +238,20 @@ export function CompletionScreen() {
         if (typeof markAttendanceRecordSynced === 'function') {
           await markAttendanceRecordSynced(record.id);
         }
-        console.log('[BG Sync] Google Sheets同期成功:', record.id);
+        setSyncStatus('success');
+        console.log('[Sync] Google Sheets同期成功:', record.id);
       } catch (err) {
-        console.error('[BG Sync] Google Sheets同期失敗:', err);
-        if (retry < 5) {
-          setTimeout(() => trySync(retry + 1), 10000); // 10秒ごとに最大5回リトライ
-        }
+        console.error('[Sync] Google Sheets同期失敗:', err);
+        setSyncStatus('error');
+        setSyncError(err instanceof Error ? err.message : '同期に失敗しました');
       }
-    };
-    setTimeout(() => trySync(), 0); // バックグラウンドで即実行
+    } else {
+      console.log('Google Sheets not configured, skipping sync');
+      setSyncStatus('error');
+      setSyncError('Google Sheetsが設定されていません。設定画面で設定してください。');
+    }
+
+    // カウントダウンは別のuseEffectで処理される
   };
 
   const handleUpdateRecord = () => {
