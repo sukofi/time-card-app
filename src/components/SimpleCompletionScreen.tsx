@@ -1,43 +1,43 @@
 import React, { useEffect, useState } from 'react';
-import { CheckCircle2, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useDatabase } from '../hooks/useDatabase';
-import { useGoogleSheets } from '../hooks/useGoogleSheets';
 import { useNavigate } from 'react-router-dom';
 
 export function SimpleCompletionScreen() {
   const { state, reset } = useApp();
-  const { addAttendanceRecord, getSetting } = useDatabase();
+  const { addAttendanceRecord } = useDatabase();
   const navigate = useNavigate();
   const [countdown, setCountdown] = useState(3);
   const [isProcessing, setIsProcessing] = useState(true);
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
-  const [syncError, setSyncError] = useState<string>('');
-  const [googleSheetsSettings, setGoogleSheetsSettings] = useState({ 
-    serviceAccountKey: '', 
-    spreadsheetId: '' 
-  });
+  // const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  // const [syncError, setSyncError] = useState<string>('');
+  // Google Sheets設定関連を一時的に無効化
+  // const [googleSheetsSettings, setGoogleSheetsSettings] = useState({ 
+  //   serviceAccountKey: '', 
+  //   spreadsheetId: '' 
+  // });
 
-  // Google Sheets設定を読み込む（非同期）
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const serviceAccountKey = await getSetting('googleSheetsServiceAccountKey') || '';
-        const spreadsheetId = await getSetting('googleSheetsSpreadsheetId') || '';
-        setGoogleSheetsSettings({ serviceAccountKey, spreadsheetId });
-      } catch (error) {
-        console.error('Error loading Google Sheets settings:', error);
-      }
-    };
-    // 非同期で実行
-    setTimeout(loadSettings, 0);
-  }, [getSetting]);
+  // // Google Sheets設定を読み込む（非同期）
+  // useEffect(() => {
+  //   const loadSettings = async () => {
+  //     try {
+  //       const serviceAccountKey = await getSetting('googleSheetsServiceAccountKey') || '';
+  //       const spreadsheetId = await getSetting('googleSheetsSpreadsheetId') || '';
+  //       setGoogleSheetsSettings({ serviceAccountKey, spreadsheetId });
+  //     } catch (error) {
+  //       console.error('Error loading Google Sheets settings:', error);
+  //     }
+  //   };
+  //   // 非同期で実行
+  //   setTimeout(loadSettings, 0);
+  // }, [getSetting]);
 
-  const { recordAttendance, isConfigured } = useGoogleSheets(
-    googleSheetsSettings.serviceAccountKey && googleSheetsSettings.spreadsheetId 
-      ? googleSheetsSettings 
-      : undefined
-  );
+  // const { recordAttendance, isConfigured } = useGoogleSheets(
+  //   googleSheetsSettings.serviceAccountKey && googleSheetsSettings.spreadsheetId 
+  //     ? googleSheetsSettings 
+  //     : undefined
+  // ); // 一時的に無効化
 
   useEffect(() => {
     // 打刻処理を実行
@@ -63,9 +63,8 @@ export function SimpleCompletionScreen() {
         if (record) {
           console.log('Attendance record saved:', record);
           
-          // Google Sheets同期を一時的に無効化（安定性のため）
-          console.log('Google Sheets sync temporarily disabled for stability');
-          setSyncStatus('idle');
+          // ローカル保存完了
+          console.log('Local save completed');
         }
 
         setIsProcessing(false);
@@ -91,46 +90,49 @@ export function SimpleCompletionScreen() {
     }
   }, [countdown, isProcessing, reset, navigate]);
 
-  const getSyncStatusIcon = () => {
-    switch (syncStatus) {
-      case 'syncing':
-        return <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>;
-      case 'success':
-        return <Wifi className="w-5 h-5 text-green-500" />;
-      case 'error':
-        return <WifiOff className="w-5 h-5 text-red-500" />;
-      default:
-        return <CheckCircle2 className="w-5 h-5 text-green-500" />;
-    }
-  };
+  // 同期ステータス関連の関数を一時的に無効化
+  // const getSyncStatusIcon = () => {
+  //   switch (syncStatus) {
+  //     case 'syncing':
+  //       return <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>;
+  //     case 'success':
+  //       return <Wifi className="w-5 h-5 text-green-500" />;
+  //     case 'error':
+  //       return <WifiOff className="w-5 h-5 text-red-500" />;
+  //     default:
+  //       return <CheckCircle2 className="w-5 h-5 text-green-500" />;
+  //   }
+  // };
 
-  const getSyncStatusText = () => {
-    if (!isConfigured) return 'ローカル保存完了（Google Sheets未設定）';
-    switch (syncStatus) {
-      case 'syncing':
-        return 'スプレッドシートに同期中...';
-      case 'success':
-        return 'スプレッドシートに同期完了';
-      case 'error':
-        return '同期に失敗しました';
-      default:
-        return 'ローカル保存完了';
-    }
-  };
+  // const getSyncStatusText = () => {
+  //   // const isConfigured = false; // 一時的に無効化
+  //   // if (!isConfigured) return 'ローカル保存完了（Google Sheets未設定）';
+  //   switch (syncStatus) {
+  //     case 'syncing':
+  //       return 'スプレッドシートに同期中...';
+  //     case 'success':
+  //       return 'スプレッドシートに同期完了';
+  //     case 'error':
+  //       return '同期に失敗しました';
+  //     default:
+  //       return 'ローカル保存完了';
+  //   }
+  // };
 
-  const getSyncStatusColor = () => {
-    if (!isConfigured) return 'bg-gray-100 text-gray-600';
-    switch (syncStatus) {
-      case 'syncing':
-        return 'bg-blue-100 text-blue-700';
-      case 'success':
-        return 'bg-green-100 text-green-700';
-      case 'error':
-        return 'bg-red-100 text-red-700';
-      default:
-        return 'bg-gray-100 text-gray-600';
-    }
-  };
+  // const getSyncStatusColor = () => {
+  //   // const isConfigured = false; // 一時的に無効化
+  //   // if (!isConfigured) return 'bg-gray-100 text-gray-600';
+  //   switch (syncStatus) {
+  //     case 'syncing':
+  //       return 'bg-blue-100 text-blue-700';
+  //     case 'success':
+  //       return 'bg-green-100 text-green-700';
+  //     case 'error':
+  //       return 'bg-red-100 text-red-700';
+  //     default:
+  //       return 'bg-gray-100 text-gray-600';
+  //   }
+  // };
 
   if (isProcessing) {
     return (
@@ -189,19 +191,14 @@ export function SimpleCompletionScreen() {
           </div>
         </div>
 
-        {/* 同期ステータス */}
-        <div className={`rounded-lg p-3 md:p-4 mb-4 md:mb-6 ${getSyncStatusColor()}`}>
+        {/* 保存完了メッセージ */}
+        <div className="bg-green-100 text-green-700 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
           <div className="flex items-center justify-center space-x-2">
-            {getSyncStatusIcon()}
+            <CheckCircle2 className="w-5 h-5" />
             <span className="text-sm font-medium">
-              {getSyncStatusText()}
+              ローカル保存完了
             </span>
           </div>
-          {syncStatus === 'error' && (
-            <p className="text-xs mt-2 opacity-75">
-              {syncError}
-            </p>
-          )}
         </div>
 
         <p className="text-xl md:text-2xl font-semibold text-green-600 mb-3 md:mb-4">
