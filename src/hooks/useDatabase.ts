@@ -28,7 +28,7 @@ interface AttendanceRecord {
 export function useDatabase() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // const { isConfigured } = useGoogleSheets(); // 一時的に無効化
+  const { isConfigured } = useGoogleSheets();
 
   useEffect(() => {
     const initializeDatabase = async () => {

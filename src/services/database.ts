@@ -21,6 +21,7 @@ interface AttendanceRecord {
   type_name: string;
   timestamp: string;
   date: string;
+  synced?: boolean;
 }
 
 export class DatabaseService {

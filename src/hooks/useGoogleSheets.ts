@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { GoogleSheetsService } from '../services/googleSheets';
 
 interface GoogleSheetsConfig {
@@ -6,133 +6,126 @@ interface GoogleSheetsConfig {
   spreadsheetId: string;
 }
 
-export function useGoogleSheets(config?: GoogleSheetsConfig) {
+interface AttendanceRecord {
+  departmentName: string;
+  employeeName: string;
+  attendanceType: string;
+  timestamp: Date;
+}
+
+export function useGoogleSheets() {
   const [sheetsService, setSheetsService] = useState<GoogleSheetsService | null>(null);
   const [isConfigured, setIsConfigured] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    if (config?.serviceAccountKey && config?.spreadsheetId && 
-        config.serviceAccountKey.trim() !== '' && config.spreadsheetId.trim() !== '') {
-      try {
-        // サービスアカウントキーのJSONフォーマットをチェック
-        const keyData = JSON.parse(config.serviceAccountKey);
-        if (!keyData.private_key || !keyData.client_email) {
-          throw new Error('Invalid service account key format');
-        }
-        
-        const service = new GoogleSheetsService(config);
-        setSheetsService(service);
-        setIsConfigured(true);
-        setError(null);
-      } catch (err: any) {
-        setError(err.message || 'Google Sheets設定エラー');
-        setSheetsService(null);
-        setIsConfigured(false);
-      }
-    } else {
+  // 設定を更新
+  const updateConfig = useCallback((config: GoogleSheetsConfig | null) => {
+    if (!config || !config.serviceAccountKey || !config.spreadsheetId) {
       setSheetsService(null);
       setIsConfigured(false);
+      setIsConnected(false);
       setError(null);
-    }
-  }, [config]);
-
-  const recordAttendance = async (
-    departmentName: string,
-    employeeName: string,
-    attendanceType: string,
-    timestamp: Date
-  ) => {
-    if (!sheetsService) {
-      throw new Error('Google Sheets service not configured');
+      return;
     }
 
     try {
-      console.log('[GoogleSheets] recordAttendance start', { departmentName, employeeName, attendanceType, timestamp });
-      // 連続リクエストの制御
-      await new Promise(resolve => setTimeout(resolve, 300));
-      await sheetsService.recordAttendance(departmentName, employeeName, attendanceType, timestamp);
+      const service = new GoogleSheetsService(config);
+      setSheetsService(service);
+      setIsConfigured(true);
       setError(null);
-      console.log('[GoogleSheets] recordAttendance success', { departmentName, employeeName, attendanceType, timestamp });
+      console.log('[GoogleSheets] Configuration updated successfully');
     } catch (err: any) {
-      const errorMessage = (err && err.message) ? err.message : JSON.stringify(err);
-      setError(errorMessage);
-      console.error('[GoogleSheets] recordAttendance error', errorMessage, err);
-      throw new Error(errorMessage);
+      setError(err.message || 'Google Sheets設定エラー');
+      setSheetsService(null);
+      setIsConfigured(false);
+      setIsConnected(false);
+      console.error('[GoogleSheets] Configuration error:', err);
     }
-  };
+  }, []);
 
-  const initializeDepartmentSheet = async (departmentName: string, employees: string[]) => {
+  // 接続テスト
+  const testConnection = useCallback(async (): Promise<boolean> => {
     if (!sheetsService) {
-      throw new Error('Google Sheets service not configured');
-    }
-
-    try {
-      await sheetsService.initializeDepartmentSheet(departmentName, employees);
-      setError(null);
-    } catch (err: any) {
-      const errorMessage = err.message || '部署シートの初期化に失敗しました';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    }
-  };
-
-  const getDepartmentEmployees = async (departmentName: string): Promise<string[]> => {
-    if (!sheetsService) {
-      return [];
-    }
-
-    try {
-      const employees = await sheetsService.getDepartmentEmployees(departmentName);
-      setError(null);
-      return employees;
-    } catch (err: any) {
-      const errorMessage = err.message || '職員データの取得に失敗しました';
-      setError(errorMessage);
-      return [];
-    }
-  };
-
-  const testConnection = async (): Promise<boolean> => {
-    if (!sheetsService) {
+      setIsConnected(false);
       return false;
     }
 
+    setIsLoading(true);
+    setError(null);
+
     try {
       const result = await sheetsService.testConnection();
+      setIsConnected(result);
+      
       if (result) {
-        setError(null);
+        console.log('[GoogleSheets] Connection test successful');
+      } else {
+        console.log('[GoogleSheets] Connection test failed');
       }
+      
       return result;
     } catch (err: any) {
       const errorMessage = err.message || '接続テストに失敗しました';
       setError(errorMessage);
+      setIsConnected(false);
+      console.error('[GoogleSheets] Connection test error:', err);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [sheetsService]);
+
+  // 打刻記録を送信
+  const recordAttendance = useCallback(async (record: AttendanceRecord): Promise<boolean> => {
+    if (!sheetsService) {
+      console.warn('[GoogleSheets] Service not configured');
       return false;
     }
-  };
 
-  const addEmployeeToSheet = async (departmentName: string, employeeName: string): Promise<void> => {
-    if (!sheetsService) {
-      throw new Error('Google Sheets service not configured');
+    if (!isConnected) {
+      console.warn('[GoogleSheets] Not connected to Google Sheets');
+      return false;
     }
+
+    setIsLoading(true);
+    setError(null);
 
     try {
-      await sheetsService.addEmployeeToSheet(departmentName, employeeName);
-      setError(null);
+      await sheetsService.recordAttendance(record);
+      console.log('[GoogleSheets] Attendance recorded successfully:', record);
+      return true;
     } catch (err: any) {
-      const errorMessage = err.message || '職員の追加に失敗しました';
+      const errorMessage = err.message || '打刻記録の送信に失敗しました';
       setError(errorMessage);
-      throw new Error(errorMessage);
+      console.error('[GoogleSheets] Record attendance error:', err);
+      return false;
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [sheetsService, isConnected]);
+
+  // 設定が変更されたら接続テストを実行
+  useEffect(() => {
+    if (isConfigured && sheetsService) {
+      testConnection();
+    }
+  }, [isConfigured, sheetsService, testConnection]);
+
   return {
-    sheetsService,
+    // 状態
     isConfigured,
+    isConnected,
+    isLoading,
     error,
-    recordAttendance,
-    initializeDepartmentSheet,
-    getDepartmentEmployees,
+    
+    // メソッド
+    updateConfig,
     testConnection,
-    addEmployeeToSheet
+    recordAttendance,
+    
+    // 内部サービス（必要に応じて）
+    sheetsService
   };
 }
