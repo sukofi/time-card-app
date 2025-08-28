@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* タブレット横向き使用に最適化 */
+@layer base {
+  html {
+    /* タッチデバイスでのスクロールを滑らかに */
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  body {
+    /* タッチデバイスでのタップハイライトを無効化 */
+    -webkit-tap-highlight-color: transparent;
+    /* ユーザー選択を無効化（誤操作防止） */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* ボタンのタッチ操作を最適化 */
+  button {
+    touch-action: manipulation;
+  }
+}
+
+/* タブレット横向き専用のスタイル */
+@media screen and (orientation: landscape) and (min-width: 768px) and (max-width: 1024px) {
+  .tablet-landscape-optimized {
+    /* タブレット横向き時の特別なスタイル */
+    padding: 1rem;
+  }
+  
+  /* より大きなタッチターゲット */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

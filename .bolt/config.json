@@ -1,0 +1,9 @@
+{
+-  "template": "bolt-vite-react-ts"
++  "template": "bolt-vite-react-ts",
++  "platforms": [
++    "web",
++    "ios",
++    "android"
++  ]
+}
